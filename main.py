@@ -20,7 +20,7 @@ async def echo(websocket):
 
 async def main():
     print("Started")
-    req_hand = threading.Thread(target=request_handler, args=(1,))
+    req_hand = threading.Thread(target=request_handler, args=())
     req_hand.start()
     async with websockets.serve(echo, None, 6000):
         await asyncio.Future()  # run forever
