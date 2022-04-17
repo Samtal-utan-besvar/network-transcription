@@ -3,10 +3,17 @@ import websockets
 import librosa
 import numpy as np
 
+"""
+A small test program for sending a single local mp3 file to the server
+for it to transcribe via web_socket. 
+"""
+
+
 async def send_data(data):
     async with websockets.connect("ws://129.151.209.72:6000") as websocket:
         await websocket.send(data)
-        await websocket.recv()
+        await websocket.send("svar")
+        await print(websocket.recv())
 
 
 f = "4_ref.mp3"

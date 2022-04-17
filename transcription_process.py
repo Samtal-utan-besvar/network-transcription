@@ -6,6 +6,11 @@ import time
 import numpy as np
 import os
 
+
+"""
+The transcription process, highgly based on the example code from hugging face.
+Send in a numpy array of a sound file in swedish and sample rate 16kHz and it will transcribe. 
+"""
 def transcribe(soundfile):
     print("Started transcribing")
     processor = Wav2Vec2Processor.from_pretrained("KBLab/wav2vec2-large-voxrex-swedish")
@@ -25,3 +30,4 @@ def transcribe(soundfile):
 
     print("Sample time:\t", sample_length)
     print("Inference time:\t", inference_time, "\nPrediction:\t", texts[0])
+    return texts[0]
