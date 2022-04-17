@@ -20,12 +20,6 @@ def request_handler():
         answer = transcribe(np.frombuffer(message, dtype=np.float32))
         answers.append(answer)
 
-
-def get_answer():
-    while len(answers)==0:
-        pass
-    return answers.pop(0)
-
 """
 Websocket answering function. Adds all incoming text into a work queue (messages).
 Does not analyze messages yet for sorting and handling different requests differently.
@@ -33,8 +27,10 @@ Does not analyze messages yet for sorting and handling different requests differ
 async def echo(websocket):
     async for message in websocket:
         if message == "svar":
-            answer = await get_answer()
-            await websocket.send(answer)
+            if answers:
+                await websocket.send(answers.pop(0))
+            else:
+                await websocket.send("")
         else:
             messages.append(message)
 

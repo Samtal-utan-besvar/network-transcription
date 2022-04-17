@@ -12,8 +12,10 @@ for it to transcribe via web_socket.
 async def send_data(data):
     async with websockets.connect("ws://129.151.209.72:6000") as websocket:
         await websocket.send(data)
-        await websocket.send("svar")
-        answer = await websocket.recv()
+        answer = ""
+        while answer == "":
+            await websocket.send("svar")
+            answer = await websocket.recv()
         print(answer)
 
 
