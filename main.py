@@ -28,10 +28,11 @@ Does not analyze messages yet for sorting and handling different requests differ
 async def echo(websocket):
     async for message in websocket:
         if message == "svar":
+            while len(answers)==0:
+                pass
             await websocket.send(answers.pop(0))
         else:
             messages.append(message)
-            await websocket.send(message)
 
 
 """
