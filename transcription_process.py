@@ -15,7 +15,7 @@ def transcribe(soundfile):
     inputs = processor(soundfile, sampling_rate=16_000, return_tensors="pt", padding=True)
     start = time.perf_counter()
     with torch.no_grad():
-        logits = model(inputs.input_values.double(), attention_mask=inputs.attention_mask.double()).logits
+        logits = model(inputs.input_values, attention_mask=inputs.attention_mask).logits
     predicted_ids = torch.argmax(logits, dim=-1)
     texts = processor.batch_decode(predicted_ids)
     inference_time = time.perf_counter()-start
