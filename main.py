@@ -12,11 +12,12 @@ Starts several processes of parallell transcription instances and delegates inco
 amongst theese from the work queue (messages). 
 """
 def request_handler():
-    #number_of_procecess = 1
-    while len(messages)==0:
-        pass
-    message = messages.pop(0)
-    transcribe(np.frombuffer(message, dtype=np.float32))
+    while True:
+        #number_of_procecess = 1
+        while len(messages)==0:
+            pass
+        message = messages.pop(0)
+        transcribe(np.frombuffer(message, dtype=np.float32))
 
 
 """
