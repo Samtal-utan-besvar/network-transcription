@@ -16,7 +16,7 @@ def request_handler():
     while len(messages)==0:
         pass
     message = messages.pop(0)
-    transcribe(np.frombuffer(message))
+    transcribe(np.fromstring(message))
 
 
 """
