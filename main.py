@@ -40,9 +40,9 @@ Main function, sets up the listening websocket and handles all incoming ws work 
 Starts thread in request_handler to run in parallell. 
 """
 async def main():
-    print("Started")
     req_hand = threading.Thread(target=request_handler, args=())
     req_hand.start()
+    print("Started")
     async with websockets.serve(echo, None, 6000):
         await asyncio.Future()  # run forever
 
