@@ -8,3 +8,21 @@ This repo is used for tracking and developing files for the transcription server
   <li>Distribute the transcribing task among all available cores.</li>
 </ol>
 The software utilizes the community Hugging Face's open source transcribing model KBLab/wav2vec2-large-voxrex-swedish which has a good precision. 
+
+### Requirements:
+<ol>
+  <li>Python 3.7 or higher due to certain functionality in asyncio.</li>
+</ol>
+
+### Packages to pip install:
+<ol>
+  <li>torch</li>
+  <li>torchaudio</li>
+  <li>transformers</li>
+  <li>datasets</li>
+  <li>numpy</li>
+  <li>websockets</li>
+</ol>
+Pleasure make sure that theese packages are installed to your Python 3.7+ version and not any older default version.
+
+
