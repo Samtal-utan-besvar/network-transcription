@@ -31,3 +31,11 @@ def transcribe(soundfile):
     print("Sample time:\t", sample_length)
     print("Inference time:\t", inference_time, "\nPrediction:\t", texts[0])
     return texts[0]
+
+
+def main(pipe):
+    while True:
+        while pipe.empty():
+            pass
+        sound = pipe.recv()
+        transcribe(sound)

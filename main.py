@@ -1,24 +1,44 @@
 import asyncio
 import websockets
 import threading
-from transcription_process import transcribe
+import transcription_process
 import numpy as np
+from multiprocessing import Process, Pipe
 
 messages = []
 answers = []
+
+
+"""
+
+def f(conn):
+    conn.send([42, None, 'hello'])
+    conn.close()
+
+if __name__ == '__main__':
+    parent_conn, child_conn = Pipe()
+    p = Process(target=f, args=(child_conn,))
+    p.start()
+    print(parent_conn.recv())   # prints "[42, None, 'hello']"
+    p.join()
+
+"""
 
 """
 (Will soon) Starts several processes of parallell transcription instances and delegates incoming transcription work 
 amongst theese from the work queue (messages). 
 """
 def request_handler():
+
+    parent_pipe, child_pipe = Pipe()
+    p = Process(target=transcription_process.main, args=(child_pipe,))
+    p.start()
     while True:
         #number_of_procecess = 1
         while len(messages)==0:
             pass
         message = messages.pop(0)
-        answer = transcribe(np.frombuffer(message, dtype=np.float32))
-        answers.append(answer)
+        parent_pipe.send(np.frombuffer(message, dtype=np.float32))
 
 """
 Websocket answering function. Adds all incoming text into a work queue (messages).
@@ -47,3 +67,5 @@ async def main():
         await asyncio.Future()  # run forever
 
 asyncio.run(main())
+
+
