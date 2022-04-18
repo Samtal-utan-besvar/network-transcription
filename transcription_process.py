@@ -31,12 +31,14 @@ def transcribe(soundfile, processor, model):
     return texts[0]
 
 
-def main(pipe, sema, answer_event):
+def main(pipe, sema, answer_event, manager):
     processor = Wav2Vec2Processor.from_pretrained("KBLab/wav2vec2-large-voxrex-swedish")
     model = Wav2Vec2ForCTC.from_pretrained("KBLab/wav2vec2-large-voxrex-swedish")
     while True:
         sema.acquire()
         sound = pipe.recv()
+        manager['working'] = True
         answer = transcribe(sound, processor, model)
         answer_event.set()
         pipe.send(answer)
+        manager['working'] = False

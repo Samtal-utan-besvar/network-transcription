@@ -4,7 +4,7 @@ import websockets
 import threading
 import transcription_process
 import numpy as np
-from multiprocessing import Process, Pipe, Semaphore, Event
+from multiprocessing import Process, Pipe, Semaphore, Event, Manager
 
 messages = []
 answers = []
@@ -23,22 +23,44 @@ Starts several processes of parallell transcription instances and delegates inco
 amongst theese from the work queue (messages).
 """
 def request_handler():
-    #Setup processes
-    parent_pipe, child_pipe = Pipe()
-    sema = Semaphore(0)
-    answer_event = Event()
-    #Answer thread for specific transcription process
-    ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe))
-    ans_hand.start()
-    #Process itself
-    p = Process(target=transcription_process.main, args=(child_pipe, sema, answer_event,)) 
-    p.start()
+
+    active_processes = []
+    for i in range(3):
+        #Setup communication for Process
+        parent_pipe, child_pipe = Pipe()
+        sema = Semaphore(0)
+        answer_event = Event()
+        manag = Manager().dict(working=False)
+        #Answer thread for specific transcription process
+        ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe))
+        ans_hand.start()
+        #Process itself
+        p = Process(target=transcription_process.main, args=(child_pipe, sema, answer_event, manag,)) 
+        p.start()
+
+        process_bundle = [p, parent_pipe, sema, manag]
+        active_processes.append(process_bundle)
 
     while True:
-        message_available.wait()
-        message_available.clear()
-        message = messages.pop(0)
+        message_available.wait() #wait until a message has been recieved from websocket
 
+        bundle = None #reset previous process_bundle
+        searching_process = True
+        while searching_process:
+            #choose process bundle by finding an idle one
+            for pro_bundle in active_processes:
+                if not pro_bundle[3]['working']: #if process not working
+                    bundle = pro_bundle
+                    break
+            if bundle!=None:
+                searching_process = False
+
+        message_available.clear() #clear flag so that a new message can be received
+        message = messages.pop(0) #Get the oldest message for transcribing
+
+        #Get communnication links to process
+        sema = bundle[2]
+        parent_pipe = bundle[1]
         #Process work
         sema.release()
         parent_pipe.send(np.frombuffer(message, dtype=np.float32))
