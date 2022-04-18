@@ -25,42 +25,40 @@ amongst theese from the work queue (messages).
 def request_handler():
 
     active_processes = []
-    for i in range(3):
+    free_processes = Semaphore(0) #Counter for the number of processes not currently transcribing
+    for i in range(2):
         #Setup communication for Process
         parent_pipe, child_pipe = Pipe()
-        sema = Semaphore(0)
+        incoming_work_sema = Semaphore(0)
         answer_event = Event()
         manag = Manager().dict(working=False)
         #Answer thread for specific transcription process
         ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe))
         ans_hand.start()
         #Process itself
-        p = Process(target=transcription_process.main, args=(child_pipe, sema, answer_event, manag,)) 
+        p = Process(target=transcription_process.main, args=(child_pipe, incoming_work_sema, answer_event, manag, free_processes,)) 
         p.start()
 
-        process_bundle = [p, parent_pipe, sema, manag]
+        process_bundle = [p, parent_pipe, incoming_work_sema, manag]
         active_processes.append(process_bundle)
 
     while True:
         message_available.acquire() #wait until a message has been recieved from websocket
+        free_processes.acquire() #wait until a transcription process is free to work again
 
         bundle = None #reset previous process_bundle
-        searching_process = True
-        while searching_process:
-            #choose process bundle by finding an idle one
-            for pro_bundle in active_processes:
-                if not pro_bundle[3]['working']: #if process not working
-                    bundle = pro_bundle
-                    break
-            if bundle!=None:
-                searching_process = False
+        for pro_bundle in active_processes: #find one process currently free
+            if not pro_bundle[3]['working']: #if process not working
+                bundle = pro_bundle
+                break
+
 
         message = messages.pop(0) #Get the oldest message for transcribing
         #Get communnication links to process
-        sema = bundle[2]
+        incoming_work_sema = bundle[2]
         parent_pipe = bundle[1]
-        #Process work
-        sema.release()
+        #Start the process work
+        incoming_work_sema.release()
         parent_pipe.send(np.frombuffer(message, dtype=np.float32))
 
 
