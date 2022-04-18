@@ -2,49 +2,48 @@ import asyncio
 from email import message
 import websockets
 import threading
-from threading import Event
 import transcription_process
 import numpy as np
-from multiprocessing import Process, Pipe, Semaphore
+from multiprocessing import Process, Pipe, Semaphore, Event
 
 messages = []
 answers = []
 message_available = ""
 
 
-"""
-
-def f(conn):
-    conn.send([42, None, 'hello'])
-    conn.close()
-
-if __name__ == '__main__':
-    parent_conn, child_conn = Pipe()
-    p = Process(target=f, args=(child_conn,))
-    p.start()
-    print(parent_conn.recv())   # prints "[42, None, 'hello']"
-    p.join()
+def answer_handler(event, pipe):
+    while True:
+        event.wait()
+        event.clear()
+        answer = pipe.recv()
+        answers.append(answer)
 
 """
-
-"""
-(Will soon) Starts several processes of parallell transcription instances and delegates incoming transcription work 
-amongst theese from the work queue (messages). 
+Starts several processes of parallell transcription instances and delegates incoming transcription work 
+amongst theese from the work queue (messages).
 """
 def request_handler():
-
+    #Setup processes
     parent_pipe, child_pipe = Pipe()
     sema = Semaphore(0)
-    p = Process(target=transcription_process.main, args=(child_pipe, sema,)) 
+    answer_event = Event()
+    #Answer thread for specific transcription process
+    ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe))
+    ans_hand.start()
+    #Process itself
+    p = Process(target=transcription_process.main, args=(child_pipe, sema, answer_event,)) 
     p.start()
+
     while True:
-        
         message_available.wait()
         message_available.clear()
-
         message = messages.pop(0)
+
+        #Process work
         sema.release()
         parent_pipe.send(np.frombuffer(message, dtype=np.float32))
+
+
 
 
 """
