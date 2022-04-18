@@ -33,9 +33,8 @@ def transcribe(soundfile):
     return texts[0]
 
 
-def main(pipe):
+def main(pipe, sema):
     while True:
-        while not pipe.poll():
-            pass
+        sema.acquire()
         sound = pipe.recv()
         transcribe(sound)

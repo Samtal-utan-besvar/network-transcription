@@ -3,7 +3,7 @@ import websockets
 import threading
 import transcription_process
 import numpy as np
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, Semaphore
 
 messages = []
 answers = []
@@ -31,7 +31,8 @@ amongst theese from the work queue (messages).
 def request_handler():
 
     parent_pipe, child_pipe = Pipe()
-    p = Process(target=transcription_process.main, args=(child_pipe,))
+    sema = Semaphore(0)
+    p = Process(target=transcription_process.main, args=(child_pipe, sema,))
     p.start()
     while True:
         #number_of_procecess = 1
@@ -39,6 +40,7 @@ def request_handler():
             pass
         message = messages.pop(0)
         parent_pipe.send(np.frombuffer(message, dtype=np.float32))
+        sema.release()
 
 """
 Websocket answering function. Adds all incoming text into a work queue (messages).
