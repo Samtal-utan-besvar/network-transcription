@@ -8,7 +8,7 @@ from multiprocessing import Process, Pipe, Semaphore, Event, Manager
 
 messages = []
 answers = []
-message_available = ""
+message_available = None
 
 
 def answer_handler(event, pipe):
@@ -42,7 +42,7 @@ def request_handler():
         active_processes.append(process_bundle)
 
     while True:
-        message_available.wait() #wait until a message has been recieved from websocket
+        message_available.acquire() #wait until a message has been recieved from websocket
 
         bundle = None #reset previous process_bundle
         searching_process = True
@@ -55,9 +55,7 @@ def request_handler():
             if bundle!=None:
                 searching_process = False
 
-        message_available.clear() #clear flag so that a new message can be received
         message = messages.pop(0) #Get the oldest message for transcribing
-
         #Get communnication links to process
         sema = bundle[2]
         parent_pipe = bundle[1]
@@ -81,7 +79,7 @@ async def echo(websocket):
                 await websocket.send("")
         else:
             messages.append(message)
-            message_available.set()
+            message_available.release()
 
 
 """
@@ -90,7 +88,7 @@ Starts thread in request_handler to run in parallell.
 """
 async def main():
     global message_available
-    message_available = threading.Event()
+    message_available = threading.Semaphore(0)
 
     req_hand = threading.Thread(target=request_handler, args=())
     req_hand.start()
