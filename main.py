@@ -1,12 +1,15 @@
 import asyncio
+from email import message
 import websockets
 import threading
+from threading import Event
 import transcription_process
 import numpy as np
 from multiprocessing import Process, Pipe, Semaphore
 
 messages = []
 answers = []
+message_available = ""
 
 
 """
@@ -32,15 +35,17 @@ def request_handler():
 
     parent_pipe, child_pipe = Pipe()
     sema = Semaphore(0)
-    p = Process(target=transcription_process.main, args=(child_pipe, sema,))
+    p = Process(target=transcription_process.main, args=(child_pipe, sema,)) 
     p.start()
     while True:
-        #number_of_procecess = 1
-        while len(messages)==0:
-            pass
+        
+        message_available.wait()
+        message_available.clear()
+
         message = messages.pop(0)
-        parent_pipe.send(np.frombuffer(message, dtype=np.float32))
         sema.release()
+        parent_pipe.send(np.frombuffer(message, dtype=np.float32))
+
 
 """
 Websocket answering function. Adds all incoming text into a work queue (messages).
@@ -55,6 +60,7 @@ async def echo(websocket):
                 await websocket.send("")
         else:
             messages.append(message)
+            message_available.set()
 
 
 """
@@ -62,6 +68,9 @@ Main function, sets up the listening websocket and handles all incoming ws work 
 Starts thread in request_handler to run in parallell. 
 """
 async def main():
+    global message_available
+    message_available = threading.Event()
+
     req_hand = threading.Thread(target=request_handler, args=())
     req_hand.start()
     print("Started")
