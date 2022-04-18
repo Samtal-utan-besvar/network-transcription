@@ -35,7 +35,7 @@ def transcribe(soundfile):
 
 def main(pipe):
     while True:
-        while pipe.empty():
+        while not pipe.poll():
             pass
         sound = pipe.recv()
         transcribe(sound)
