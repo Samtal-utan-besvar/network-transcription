@@ -86,7 +86,7 @@ async def echo(websocket):
                     await websocket.send("")
 
         elif jsonmessage['Reason'] == "transcription":
-            messages.append([message['Id'], message['Data']])
+            messages.append([message['Id'], np.assarray(message['Data'])])
             message_available.release()
 
 
