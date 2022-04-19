@@ -12,7 +12,7 @@ for it to transcribe via web_socket.
 
 
 async def send_data(data):
-    async with websockets.connect("ws://129.151.209.72:6000") as websocket:
+    async with websockets.connect("ws://129.151.209.72:6000") as websocket: 
         await websocket.send(data)
 
         answer = ""
