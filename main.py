@@ -68,21 +68,25 @@ def request_handler():
         parent_pipe.send(np.frombuffer(message, dtype=np.float32)) #Converts sound from bytes to float array and sends it into pipe for transcription
 
 
-
-
 """
 Websocket answering function. Adds all incoming text into a work queue (messages).
 Does not analyze messages yet for sorting and handling requests differently.
 """
 async def echo(websocket):
-    async for message in websocket:
-        if message == "svar":
-            if answers:
-                await websocket.send(answers.pop(0))
-            else:
-                await websocket.send("")
-        else:
-            messages.append(message)
+    async for jsonmessage in websocket:
+        
+        if jsonmessage['Reason'] == "svar":
+            message_sent = False
+            for ans in answers:
+                if jsonmessage['Id'] == ans[0]:
+                    await websocket.send(ans[1])
+                    message_sent = True
+                    
+                if not message_sent:
+                    await websocket.send("")
+
+        elif jsonmessage['Reason'] == "transcription":
+            messages.append([message['Id'], message['Data']])
             message_available.release()
 
 
