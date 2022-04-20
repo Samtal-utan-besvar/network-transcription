@@ -35,12 +35,14 @@ async def send_data(data):
         print(answer)
         await websocket.close()
 
-f = "4_ref.mp3"
-sound, sampling_rate = librosa.load(f)
-sound_16khz = librosa.resample(sound, orig_sr=sampling_rate, target_sr=16_000)
-#np_file = np.load(sound_16khz, allow_pickle=True)
 
-start_time = time.perf_counter()
-asyncio.run(send_data(sound_16khz.tobytes()))
-stop_time = time.perf_counter()
-print("Time was " + str(stop_time - start_time))
+if __name__ == '__main__': 
+    f = "4_ref.mp3"
+    sound, sampling_rate = librosa.load(f)
+    sound_16khz = librosa.resample(sound, orig_sr=sampling_rate, target_sr=16_000)
+    #np_file = np.load(sound_16khz, allow_pickle=True)
+
+    start_time = time.perf_counter()
+    asyncio.run(send_data(sound_16khz.tobytes()))
+    stop_time = time.perf_counter()
+    print("Time was " + str(stop_time - start_time))

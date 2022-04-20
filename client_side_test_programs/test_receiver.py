@@ -22,8 +22,8 @@ async def retrieve_data():
         print("Receiver")
         print(answer)
         await websocket.close()
-
-start_time = time.perf_counter()
-asyncio.run()
-stop_time = time.perf_counter()
-print("Time was " + str(stop_time - start_time))
+if __name__ == '__main__': 
+    start_time = time.perf_counter()
+    asyncio.run(retrieve_data())
+    stop_time = time.perf_counter()
+    print("Time was " + str(stop_time - start_time))
