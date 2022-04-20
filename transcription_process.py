@@ -42,8 +42,8 @@ def main(pipe, incoming_work_sema, answer_event, manager, free_processes):
         free_processes.release() #Alert request_handler that another process is free for work.
         incoming_work_sema.acquire() #Wait until work is assigned to you.
         soundmessage = pipe.recv() #Retrieve the soundfile to be transcribed.
-        soundfile = soundmessage['Data']
-        id = soundmessage['Id']
+        soundfile = soundmessage[1]
+        id = soundmessage[0]
 
         manager['working'] = True #Label yourself as working so that you are not misstaken when another process is free.
         answer = transcribe(soundfile, processor, model)

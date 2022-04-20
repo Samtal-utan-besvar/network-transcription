@@ -5,6 +5,7 @@ import threading
 import transcription_process
 import numpy as np
 from multiprocessing import Process, Pipe, Semaphore, Event, Manager
+import json
 
 messages = []
 answers = []
@@ -58,6 +59,7 @@ def request_handler():
 
 
         message = messages.pop(0) #Get the oldest message for transcribing
+        sound_data = np.frombuffer(message[1], dtype=np.float32)
 
         #Get communnication links to process
         incoming_work_sema = bundle[2]
@@ -65,7 +67,7 @@ def request_handler():
 
         #Start the process work
         incoming_work_sema.release() #Signal transcription instance that there is work on the way
-        parent_pipe.send(np.frombuffer(message, dtype=np.float32)) #Converts sound from bytes to float array and sends it into pipe for transcription
+        parent_pipe.send((message[0], sound_data)) #Converts sound from bytes to float array and sends it into pipe for transcription
 
 
 """
@@ -73,20 +75,19 @@ Websocket answering function. Adds all incoming text into a work queue (messages
 Does not analyze messages yet for sorting and handling requests differently.
 """
 async def echo(websocket):
-    async for jsonmessage in websocket:
-        
-        if jsonmessage['Reason'] == "svar":
+    async for message in websocket:
+        json_message = (json.loads(message))[0]
+        if json_message["Reason"] == "answer":
             message_sent = False
             for ans in answers:
-                if jsonmessage['Id'] == ans[0]:
+                if json_message["Id"] == ans[0]:
                     await websocket.send(ans[1])
-                    message_sent = True
-                    
-                if not message_sent:
-                    await websocket.send("")
+                    message_sent = True        
+            if not message_sent:
+                await websocket.send("")
 
-        elif jsonmessage['Reason'] == "transcription":
-            messages.append([message['Id'], np.assarray(message['Data'])])
+        elif json_message["Reason"] == "transcription":
+            messages.append([json_message["Id"], json_message["Data"].encode("latin1")])
             message_available.release()
 
 
