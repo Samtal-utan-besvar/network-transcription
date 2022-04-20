@@ -13,10 +13,10 @@ for it to transcribe via web_socket.
 
 async def send_data(data):
     async with websockets.connect("ws://129.151.209.72:6000") as websocket:  #129.151.209.72
-        json_data = json.dumps([{"Reason":"transcription", "Id":80050, "Data":data.decode(encoding = "latin1")}])
+        json_data = json.dumps([{"Reason":"transcription", "Id":7893, "Data":data.decode(encoding = "latin1")}])
         await websocket.send(json_data)
 
-        json_data = json.dumps([{"Reason":"answer", "Id":80050, "Data":"owner"}])
+        json_data = json.dumps([{"Reason":"answer", "Id":7893, "Data":"owner"}])
         answer = ""
         while answer == "":
             await websocket.send(json_data)
@@ -24,15 +24,7 @@ async def send_data(data):
             time.sleep(0.1)
         print("Owner")
         print(answer)
-
-        json_data = json.dumps([{"Reason":"answer", "Id":80050, "Data":"receiver"}])
-        answer = ""
-        while answer == "":
-            await websocket.send(json_data)
-            answer = await websocket.recv()
-            time.sleep(0.1)
-        print("Receiver")
-        print(answer)
+        
         await websocket.close()
 
 f = "4_ref.mp3"
