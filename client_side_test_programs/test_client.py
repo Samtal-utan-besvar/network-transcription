@@ -22,6 +22,16 @@ async def send_data(data):
             await websocket.send(json_data)
             answer = await websocket.recv()
             time.sleep(0.1)
+        print("Owner")
+        print(answer)
+
+        json_data = json.dumps([{"Reason":"answer", "Id":7893, "Data":"receiver"}])
+        answer = ""
+        while answer == "":
+            await websocket.send(json_data)
+            answer = await websocket.recv()
+            time.sleep(0.1)
+        print("Receiver")
         print(answer)
         await websocket.close()
 

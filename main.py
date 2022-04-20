@@ -20,7 +20,7 @@ def answer_handler(event, pipe):
         event.wait() #Wait until the transcription is done
         event.clear() #Clear event for future transcription
         answer = pipe.recv() #Retrieve the answer from pipe
-        answers.append(answer) #Save answer for the request_handler
+        answers.append([answer, {"owner":False, "receiver":False}]) #Save answer for the request_handler
 
 """
 Starts several processes of parallell transcription instances and delegates incoming transcription work 
@@ -77,12 +77,31 @@ Does not analyze messages yet for sorting and handling requests differently.
 async def echo(websocket):
     async for message in websocket:
         json_message = (json.loads(message))[0]
+
         if json_message["Reason"] == "answer":
             message_sent = False
+            index = -1           #index for deletion if both parties have retrieved the message
+            delete_answer = False
             for ans in answers:
-                if json_message["Id"] == ans[0]:
-                    await websocket.send(ans[1])
-                    message_sent = True        
+                index += 1
+                data = ans[0]
+                checker = ans[1]
+                if json_message["Id"] == data[0]:
+
+                    if json_message["Data"] == "owner":
+                        checker["owner"] = True
+
+                    elif json_message["Data"] == "receiver":
+                        checker["receiver"] = True
+
+                    await websocket.send(data[1])
+                    message_sent = True
+                    if checker["receiver"] and checker["receiver"]:
+                        delete_answer = True
+            if delete_answer:
+                answers.pop(index)
+                
+
             if not message_sent:
                 await websocket.send("")
 
