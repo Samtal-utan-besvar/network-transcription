@@ -5,6 +5,9 @@ import threading
 import transcription_process
 import numpy as np
 from multiprocessing import Process, Pipe, Semaphore, Event, Manager
+import json
+import time
+import functools
 
 messages = []
 answers = []
@@ -14,18 +17,45 @@ message_available = None
 For every transcriptions process active a thread is started here. The thread sleeps until event is set
 which means that the corresponding process is done transcribing and a message can be retrieved in the pipe.
 """
-def answer_handler(event, pipe):
+def answer_handler(event, pipe, answer_lock):
     while True:
         event.wait() #Wait until the transcription is done
         event.clear() #Clear event for future transcription
         answer = pipe.recv() #Retrieve the answer from pipe
-        answers.append(answer) #Save answer for the request_handler
+
+        answer_lock.acquire()
+        current_time = time.perf_counter()
+        answers.append([answer, {"owner":False, "receiver":False}, current_time]) #Save answer for the request_handler
+        answer_lock.release()
+
+
+"""
+Cleans up old anwers if they are not gathered within "timeout" time.
+"""
+def answer_cleaner(answer_lock):
+    timeout = 20
+    while True:
+        time.sleep(timeout)
+        answer_lock.acquire()
+        current_time = time.perf_counter()
+        index = 0
+        for ans in answers:
+            if current_time - ans[2] > timeout:
+                index += 1
+            else:
+                break
+        for i in range(index):
+            answers.pop(0)
+        answer_lock.release()
+        if index != 0:
+            print("Cleared up ", index, " old messages because of timeouts!")
+
 
 """
 Starts several processes of parallell transcription instances and delegates incoming transcription work 
 amongst theese from the work queue (messages).
 """
-def request_handler():
+def request_handler(answer_lock):
     number_of_processes = 1 #Specify the amount of transcribing instances you want (could be good to keep it below the amount of cpu-cores)
 
     active_processes = []
@@ -37,7 +67,7 @@ def request_handler():
         answer_event = Event() #Wakes up the corresponding answer_handler thread when the text is done
         manag = Manager().dict(working=False)
         #Answer thread for specific transcription process
-        ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe))
+        ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe, answer_lock,))
         ans_hand.start() #Starts the answering thread in answer_handler for each process
         #Process itself
         p = Process(target=transcription_process.main, args=(child_pipe, incoming_work_sema, answer_event, manag, free_processes,)) 
@@ -58,6 +88,7 @@ def request_handler():
 
 
         message = messages.pop(0) #Get the oldest message for transcribing
+        sound_data = np.frombuffer(message[1], dtype=np.float32)
 
         #Get communnication links to process
         incoming_work_sema = bundle[2]
@@ -65,24 +96,48 @@ def request_handler():
 
         #Start the process work
         incoming_work_sema.release() #Signal transcription instance that there is work on the way
-        parent_pipe.send(np.frombuffer(message, dtype=np.float32)) #Converts sound from bytes to float array and sends it into pipe for transcription
-
-
+        parent_pipe.send((message[0], sound_data)) #Converts sound from bytes to float array and sends it into pipe for transcription
 
 
 """
 Websocket answering function. Adds all incoming text into a work queue (messages).
 Does not analyze messages yet for sorting and handling requests differently.
 """
-async def echo(websocket):
+async def echo(websocket, answer_lock):
     async for message in websocket:
-        if message == "svar":
-            if answers:
-                await websocket.send(answers.pop(0))
-            else:
+        json_message = (json.loads(message))[0]
+
+        if json_message["Reason"] == "answer":
+            message_sent = False
+            index = -1           #index for deletion if both parties have retrieved the message
+            delete_answer = False
+
+            answer_lock.acquire()
+            for ans in answers:
+                index += 1
+                data = ans[0]
+                checker = ans[1]
+                if json_message["Id"] == data[0]:
+
+                    if json_message["Data"] == "owner":
+                        checker["owner"] = True
+
+                    elif json_message["Data"] == "receiver":
+                        checker["receiver"] = True
+
+                    await websocket.send(data[1])
+                    message_sent = True
+                    if checker["receiver"] and checker["receiver"]:
+                        delete_answer = True
+            if delete_answer:
+                answers.pop(index)
+            answer_lock.release()    
+
+            if not message_sent:
                 await websocket.send("")
-        else:
-            messages.append(message)
+
+        elif json_message["Reason"] == "transcription":
+            messages.append([json_message["Id"], json_message["Data"].encode("latin1")])
             message_available.release()
 
 
@@ -93,12 +148,16 @@ Starts thread in request_handler to run in parallell.
 async def main():
     global message_available
     message_available = threading.Semaphore(0) #Semaphore used to synchronize the incoming wbesocket jobs and request_handler scheduling
+    answer_lock = threading.Lock()
 
-    req_hand = threading.Thread(target=request_handler, args=())
+    req_hand = threading.Thread(target=request_handler, args=(answer_lock,))
     req_hand.start() #Starts a separate thread in request handler while current thread is in charge of websockets
 
+    answer_checker = threading.Thread(target=answer_cleaner, args=(answer_lock,))
+    answer_checker.start() #Starts a separate thread in request handler while current thread is in charge of websockets
+
     print("Started")
-    async with websockets.serve(echo, None, 6000):
+    async with websockets.serve(functools.partial(echo, answer_lock=answer_lock), None, 6000, ping_interval=20, ping_timeout=20):
         await asyncio.Future()  # run forever
 
 
