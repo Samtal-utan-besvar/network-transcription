@@ -7,16 +7,16 @@ import json
 
 """
 A small test program for sending a single local mp3 file to the server
-for it to transcribe via web_socket. Prompts the server as owner for file
-to retrieve the transcription.
+then sleeping for 1 minute in order to miss the servers ping.
+By missing the ping the websocket gets closed and this client will crash when trying to receive
+the message. If the client crashes and the servers informs that a websocket has been closed the test is successful. 
 """
-
-
 async def send_data(data):
     async with websockets.connect("ws://localhost:6000") as websocket:  #129.151.209.72
         json_data = json.dumps([{"Reason":"transcription", "Id":7893, "Data":data.decode(encoding = "latin1")}])
         await websocket.send(json_data)
 
+        time.sleep(60)
 
         json_data = json.dumps([{"Reason":"answer", "Id":7893, "Data":"owner"}])
         answer = ""

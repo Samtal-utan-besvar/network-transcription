@@ -5,13 +5,17 @@ import time
 import json
 
 """
-A small test program for sending a single local mp3 file to the server
-for it to transcribe via web_socket. 
+A receiver client for prompting server for an answer sent in by another client. So in order for this
+test file to be succesful you have to run test_sender. If you run recever first it will wait for the 
+server to receive a job from sender. If you run sender first you have to run receiver within 20 seconds,
+otherwise the server will remove the answer, which is also a test in itself if you wait to run this file
+for 20 seconds. 
+
+Also test the server by running sender first and then receiver twice. The second request should fail since
+the server has already served the owner and receiver and therefore removed the answer. 
 """
-
-
 async def retrieve_data():
-    async with websockets.connect("ws://129.151.209.72:6000") as websocket:  #129.151.209.72
+    async with websockets.connect("ws://localhost:6000") as websocket:  #129.151.209.72
 
         json_data = json.dumps([{"Reason":"answer", "Id":7893, "Data":"receiver"}])
         answer = ""

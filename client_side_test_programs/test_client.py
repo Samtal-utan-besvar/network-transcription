@@ -7,7 +7,8 @@ import json
 
 """
 A small test program for sending a single local mp3 file to the server
-for it to transcribe via web_socket. 
+for it to transcribe via web_socket. Both prompts the server as owner 
+and receiver to receive transcripts.
 """
 
 
