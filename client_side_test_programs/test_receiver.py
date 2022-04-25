@@ -15,7 +15,7 @@ Also test the server by running sender first and then receiver twice. The second
 the server has already served the owner and receiver and therefore removed the answer. 
 """
 async def retrieve_data():
-    async with websockets.connect("ws://129.151.209.72:6000") as websocket:  #129.151.209.72
+    async with websockets.connect("ws://129.151.206.9:6000") as websocket:  #129.151.209.72
 
         json_data = json.dumps([{"Reason":"answer", "Id":7893, "Data":"receiver"}])
         answer = ""
