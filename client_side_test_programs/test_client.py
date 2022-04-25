@@ -13,7 +13,7 @@ and receiver to receive transcripts.
 
 
 async def send_data(data):
-    async with websockets.connect("ws://129.151.209.72:6000") as websocket:  #129.151.209.72
+    async with websockets.connect("ws://129.151.206.9:6000") as websocket:  #129.151.206.9
         json_data = json.dumps([{"Reason":"transcription", "Id":80050, "Data":data.decode(encoding = "latin1")}])
         await websocket.send(json_data)
 
