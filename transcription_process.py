@@ -46,7 +46,11 @@ def main(pipe, incoming_work_sema, answer_event, manager, free_processes):
         id = soundmessage[0]
 
         manager['working'] = True #Label yourself as working so that you are not misstaken when another process is free.
-        answer = transcribe(soundfile, processor, model)
+        try:
+            answer = transcribe(soundfile, processor, model)
+        except:
+            print("Transcription crashed on id " + str(id))
+            answer = "-"
 
         answer_event.set() #Alert the answer_handler thread that you are about to send back the answer.
         pipe.send([id, answer]) #Send back answer.

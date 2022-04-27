@@ -88,15 +88,31 @@ def request_handler(answer_lock):
 
 
         message = messages.pop(0) #Get the oldest message for transcribing
-        sound_data = np.frombuffer(message[1], dtype=np.float32)
+        sound_data = np.frombuffer(message[1], dtype=np.int16)
 
-        #Get communnication links to process
-        incoming_work_sema = bundle[2]
-        parent_pipe = bundle[1]
+        if sound_data:
 
-        #Start the process work
-        incoming_work_sema.release() #Signal transcription instance that there is work on the way
-        parent_pipe.send((message[0], sound_data)) #Converts sound from bytes to float array and sends it into pipe for transcription
+            """
+            If the sound is 16-bit, convert it to floating point.
+            """
+            if max(sound_data) > 1 or min(sound_data) < -1:
+                new_sound = []
+                for sample in sound_data:
+                    new_value = float(sample/32768)
+                    if new_value > 1:
+                        new_value = 1
+                    elif new_value < -1:
+                        new_value = -1
+                    new_sound.append(new_value)
+                sound_data = new_sound
+
+            #Get communnication links to process
+            incoming_work_sema = bundle[2]
+            parent_pipe = bundle[1]
+
+            #Start the process work
+            incoming_work_sema.release() #Signal transcription instance that there is work on the way
+            parent_pipe.send((message[0], sound_data)) #Converts sound from bytes to float array and sends it into pipe for transcription
 
 
 """
@@ -105,6 +121,7 @@ Does not analyze messages yet for sorting and handling requests differently.
 """
 async def echo(websocket, answer_lock):
     async for message in websocket:
+        print("Message received")
         json_message = (json.loads(message))[0]
 
         if json_message["Reason"] == "answer":
