@@ -141,7 +141,7 @@ async def echo(websocket, answer_lock):
                     elif json_message["Data"] == "receiver":
                         checker["receiver"] = True
 
-                    await websocket.send(data[0] + " " + data[1])
+                    await websocket.send(str(data[0]) + " " + data[1])
                     message_sent = True
                     if checker["receiver"] and checker["receiver"]:
                         delete_answer = True
