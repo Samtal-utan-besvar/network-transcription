@@ -33,9 +33,17 @@ if __name__ == '__main__':
     f = "4_ref.mp3"
     sound, sampling_rate = librosa.load(f)
     sound_16khz = librosa.resample(sound, orig_sr=sampling_rate, target_sr=16_000)
-    #np_file = np.load(sound_16khz, allow_pickle=True)
+    
+    new_sound = []
+    for sample in sound_16khz:
+        new_sample = sample * 32768
+        if new_sample > 32767:
+            new_sample = 32767
+        if new_sample < -32767:
+            new_sample = -32767
+        new_sound.append(new_sample)
 
     start_time = time.perf_counter()
-    asyncio.run(send_data(sound_16khz.tobytes()))
+    asyncio.run(send_data(numpy.asarray(new_sound, dtype=numpy.int16).tobytes()))
     stop_time = time.perf_counter()
     print("Time was " + str(stop_time - start_time))

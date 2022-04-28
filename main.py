@@ -90,7 +90,7 @@ def request_handler(answer_lock):
         message = messages.pop(0) #Get the oldest message for transcribing
         sound_data = np.frombuffer(message[1], dtype=np.int16)
 
-        if sound_data:
+        if len(sound_data) != 0:
 
             """
             If the sound is 16-bit, convert it to floating point.
@@ -121,7 +121,6 @@ Does not analyze messages yet for sorting and handling requests differently.
 """
 async def echo(websocket, answer_lock):
     async for message in websocket:
-        print("Message received")
         json_message = (json.loads(message))[0]
 
         if json_message["Reason"] == "answer":
