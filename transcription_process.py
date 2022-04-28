@@ -28,8 +28,6 @@ def transcribe(soundfile, processor, model):
 
     print("Sample time:\t", sample_length)
     print("Inference time:\t", inference_time, "\nPrediction:\t", texts[0])
-    if texts[0] == " ":
-        return "-"
     return texts[0]
 
 
