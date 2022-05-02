@@ -46,7 +46,7 @@ def answer_cleaner(answer_lock, globals):
             else:
                 break
         for i in range(index):
-            answers.pop(0)
+            globals.answers.pop(0)
         answer_lock.release()
         if index != 0:
             print("Cleared up ", index, " old messages because of timeouts!")
