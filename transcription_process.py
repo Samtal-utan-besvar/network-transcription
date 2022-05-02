@@ -13,7 +13,6 @@ Send in a numpy array of a sound file in swedish and sample rate 16kHz and it wi
 """
 def transcribe(soundfile, processor, model):
     print("Started transcribing")
-    #np_file = np.load(soundfile, allow_pickle=True)
     total_time = 0
     inputs = processor(soundfile, sampling_rate=16_000, return_tensors="pt", padding=True)
     start = time.perf_counter()
