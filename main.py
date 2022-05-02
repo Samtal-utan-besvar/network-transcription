@@ -143,7 +143,7 @@ async def echo(websocket, answer_lock):
 
                     await websocket.send(str(data[0]) + ":" + data[1])
                     message_sent = True
-                    if checker["receiver"] and checker["receiver"]:
+                    if checker["owner"] and checker["receiver"]:
                         delete_answer = True
             if delete_answer:
                 answers.pop(index)
