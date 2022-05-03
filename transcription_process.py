@@ -27,6 +27,10 @@ def transcribe(soundfile, processor, model):
 
     print("Sample time:\t", sample_length)
     print("Inference time:\t", inference_time, "\nPrediction:\t", texts[0])
+
+    print("Length of texts[0] is ", len(texts[0]))
+    if not len(texts[0]):
+        return "-"
     return texts[0]
 
 
