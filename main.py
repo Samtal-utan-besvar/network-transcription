@@ -11,8 +11,10 @@ import functools
 
 class global_variables:
     messages = []
-    answers = []
+    answers = {}
     message_available = None
+    clients = {}
+
 
 """
 For every transcriptions process active a thread is started here. The thread sleeps until event is set
@@ -24,10 +26,21 @@ def answer_handler(event, pipe, answer_lock, globals):
         event.clear() #Clear event for future transcription
         answer = pipe.recv() #Retrieve the answer from pipe
 
-        answer_lock.acquire()
+        #answer_lock.acquire()
         current_time = time.perf_counter()
-        globals.answers.append([answer, {"owner":False, "receiver":False}, current_time]) #Save answer for the request_handler
-        answer_lock.release()
+
+        id = answer[0]
+        text = answer[1]
+
+        globals.answers[id] = (text, current_time)
+        for client in globals.clients[id]:
+            sendAnswer(client, str(id) + ":" + text)
+        #globals.answers.append([answer, {"owner":False, "receiver":False}, current_time]) #Save answer for the request_handler
+        #answer_lock.release()
+
+
+def sendAnswer(client, answer):
+    asyncio.run(client.send(answer))
 
 
 """
@@ -37,19 +50,17 @@ def answer_cleaner(answer_lock, globals):
     timeout = 20
     while True:
         time.sleep(timeout)
-        answer_lock.acquire()
+        #answer_lock.acquire()
         current_time = time.perf_counter()
-        index = 0
-        for ans in globals.answers:
-            if current_time - ans[2] > timeout:
-                index += 1
-            else:
-                break
-        for i in range(index):
-            globals.answers.pop(0)
-        answer_lock.release()
-        if index != 0:
-            print("Cleared up ", index, " old messages because of timeouts!")
+        count = 0
+        for id in list(globals.answers.keys()):
+            trans_time = globals.answers[id][1]
+            if current_time > trans_time + timeout:
+                globals.answers.pop(id)
+                count += 1
+        #answer_lock.release()
+        if count != 0:
+            print("Cleared up ", count, " old messages because of timeouts!")
 
 
 """
@@ -121,41 +132,44 @@ Websocket answering function. Adds all incoming text into a work queue (messages
 Does not analyze messages yet for sorting and handling requests differently.
 """
 async def echo(websocket, answer_lock, globals):
+
+    print(0)
     async for message in websocket:
+        print(1)
         json_message = (json.loads(message))[0]
 
+        id = json_message["Id"]
+        print(2)
+        addClient(websocket, id, globals)
+        print(3)
         if json_message["Reason"] == "answer":
-            message_sent = False
-            index = -1           #index for deletion if both parties have retrieved the message
-            delete_answer = False
 
-            answer_lock.acquire()
-            for ans in globals.answers:
-                index += 1
-                data = ans[0]
-                checker = ans[1]
-                if json_message["Id"] == data[0]:
+            #answer_lock.acquire()
+            print(4)
+            if id in globals.answers.keys():
+                print(5)
+                data = globals.answers[id][0]
+                print(6)
+                await websocket.send(str(data[0]) + ":" + data[1])
+                print(7)
 
-                    if json_message["Data"] == "owner":
-                        checker["owner"] = True
-
-                    elif json_message["Data"] == "receiver":
-                        checker["receiver"] = True
-
-                    await websocket.send(str(data[0]) + ":" + data[1])
-                    message_sent = True
-                    if checker["owner"] and checker["receiver"]:
-                        delete_answer = True
-            if delete_answer:
-                globals.answers.pop(index)
-            answer_lock.release()    
-
-            if not message_sent:
-                await websocket.send("")
+            #answer_lock.release()
 
         elif json_message["Reason"] == "transcription":
             globals.messages.append([json_message["Id"], json_message["Data"].encode("latin1")])
             globals.message_available.release()
+
+
+def addClient(websocket, id, globals):
+
+    print('add client:', websocket.remote_address)
+
+    if not id in globals.clients.keys():
+        globals.clients[id] = set()
+    
+    globals.clients[id].add(websocket)
+    print("clients:", len(globals.clients[id]))
+
 
 
 """
