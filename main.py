@@ -11,52 +11,59 @@ import functools
 
 class global_variables:
     messages = []
-    answers = []
+    answers = {}
     message_available = None
+    clients = {}
+
 
 """
 For every transcriptions process active a thread is started here. The thread sleeps until event is set
 which means that the corresponding process is done transcribing and a message can be retrieved in the pipe.
 """
-def answer_handler(event, pipe, answer_lock, globals):
+def answer_handler(event, pipe, globals):
     while True:
         event.wait() #Wait until the transcription is done
         event.clear() #Clear event for future transcription
         answer = pipe.recv() #Retrieve the answer from pipe
 
-        answer_lock.acquire()
         current_time = time.perf_counter()
-        globals.answers.append([answer, {"owner":False, "receiver":False}, current_time]) #Save answer for the request_handler
-        answer_lock.release()
+
+        id = answer[0]
+        text = answer[1]
+
+        globals.answers[id] = (text, current_time)
+        for client in globals.clients[id]:
+            sendAnswer(client, str(id) + ":" + text)
+
+
+def sendAnswer(client, answer):
+    asyncio.run(client.send(answer))
 
 
 """
 Cleans up old anwers if they are not gathered within "timeout" time.
 """
-def answer_cleaner(answer_lock, globals):
+def answer_cleaner(globals):
     timeout = 20
     while True:
         time.sleep(timeout)
-        answer_lock.acquire()
         current_time = time.perf_counter()
-        index = 0
-        for ans in globals.answers:
-            if current_time - ans[2] > timeout:
-                index += 1
-            else:
-                break
-        for i in range(index):
-            globals.answers.pop(0)
-        answer_lock.release()
-        if index != 0:
-            print("Cleared up ", index, " old messages because of timeouts!")
+        count = 0
+        for id in list(globals.answers.keys()):
+            trans_time = globals.answers[id][1]
+            if current_time > trans_time + timeout:
+                globals.answers.pop(id)
+                globals.clients.pop(id)
+                count += 1
+        if count != 0:
+            print("Cleared up ", count, " old messages because of timeouts!")
 
 
 """
 Starts several processes of parallell transcription instances and delegates incoming transcription work 
 amongst theese from the work queue (messages).
 """
-def request_handler(answer_lock, globals):
+def request_handler(globals):
     number_of_processes = 1 #Specify the amount of transcribing instances you want (could be good to keep it below the amount of cpu-cores)
 
     active_processes = []
@@ -68,7 +75,7 @@ def request_handler(answer_lock, globals):
         answer_event = Event() #Wakes up the corresponding answer_handler thread when the text is done
         manag = Manager().dict(working=False)
         #Answer thread for specific transcription process
-        ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe, answer_lock, globals,))
+        ans_hand = threading.Thread(target=answer_handler, args=(answer_event, parent_pipe, globals,))
         ans_hand.start() #Starts the answering thread in answer_handler for each process
         #Process itself
         p = Process(target=transcription_process.main, args=(child_pipe, incoming_work_sema, answer_event, manag, free_processes,)) 
@@ -120,42 +127,35 @@ def request_handler(answer_lock, globals):
 Websocket answering function. Adds all incoming text into a work queue (messages).
 Does not analyze messages yet for sorting and handling requests differently.
 """
-async def echo(websocket, answer_lock, globals):
+async def echo(websocket, globals):
+
     async for message in websocket:
         json_message = (json.loads(message))[0]
 
+        id = json_message["Id"]
+        addClient(websocket, id, globals)
         if json_message["Reason"] == "answer":
-            message_sent = False
-            index = -1           #index for deletion if both parties have retrieved the message
-            delete_answer = False
 
-            answer_lock.acquire()
-            for ans in globals.answers:
-                index += 1
-                data = ans[0]
-                checker = ans[1]
-                if json_message["Id"] == data[0]:
+            if id in globals.answers.keys():
+                text = globals.answers[id][0]
+                await websocket.send(str(id) + ":" + text)
 
-                    if json_message["Data"] == "owner":
-                        checker["owner"] = True
-
-                    elif json_message["Data"] == "receiver":
-                        checker["receiver"] = True
-
-                    await websocket.send(str(data[0]) + ":" + data[1])
-                    message_sent = True
-                    if checker["owner"] and checker["receiver"]:
-                        delete_answer = True
-            if delete_answer:
-                globals.answers.pop(index)
-            answer_lock.release()    
-
-            if not message_sent:
-                await websocket.send("")
 
         elif json_message["Reason"] == "transcription":
             globals.messages.append([json_message["Id"], json_message["Data"].encode("latin1")])
             globals.message_available.release()
+
+
+def addClient(websocket, id, globals):
+
+    print('add client:', websocket.remote_address)
+
+    if not id in globals.clients.keys():
+        globals.clients[id] = set()
+    
+    globals.clients[id].add(websocket)
+    print("clients:", len(globals.clients[id]))
+
 
 
 """
@@ -165,16 +165,15 @@ Starts thread in request_handler to run in parallell.
 async def main():
     globals = global_variables()
     globals.message_available = threading.Semaphore(0) #Semaphore used to synchronize the incoming wbesocket jobs and request_handler scheduling
-    answer_lock = threading.Lock()
 
-    req_hand = threading.Thread(target=request_handler, args=(answer_lock, globals,))
+    req_hand = threading.Thread(target=request_handler, args=(globals,))
     req_hand.start() #Starts a separate thread in request handler while current thread is in charge of websockets
 
-    answer_checker = threading.Thread(target=answer_cleaner, args=(answer_lock, globals,))
+    answer_checker = threading.Thread(target=answer_cleaner, args=(globals,))
     answer_checker.start() #Starts a separate thread in request handler while current thread is in charge of websockets
 
     print("Started")
-    async with websockets.serve(functools.partial(echo, answer_lock=answer_lock, globals=globals), None, 6000, ping_interval=20, ping_timeout=20):
+    async with websockets.serve(functools.partial(echo, globals=globals), None, 6000, ping_interval=20, ping_timeout=20):
         await asyncio.Future()  # run forever
 
 
